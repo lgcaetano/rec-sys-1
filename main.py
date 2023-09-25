@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import math
+
+start = datetime.now()
 
 ratings = pd.read_csv('ratings.csv')
 targets = pd.read_csv('targets.csv')
@@ -37,7 +41,7 @@ n_users = len(users)
 
  
 
-k = 5 # latent factors
+k = 10 # latent factors
 
 learning_rate = 0.01
 
@@ -45,11 +49,15 @@ lambda_reg = 0.1
 
 epochs = 1
 
-batch_size = 32
+batch_size = 64
 
-users_initials = np.ones((n_users, k))
+rating_mean = ratings['Rating'].mean()
 
-items_initials = np.ones((n_items, k))
+initial_mean = math.sqrt(rating_mean / 10) 
+
+users_initials = np.full((n_users, k), initial_mean)
+
+items_initials = np.full((n_items, k), initial_mean)
 
 
 u_latent = pd.DataFrame(users_initials, index=ratings['UserId'].unique())
@@ -78,7 +86,7 @@ for i in range(epochs):
     #     i_latent.loc[item_id] += learning_rate * (e * u_latent.loc[user_id] - lambda_reg * i_latent.loc[item_id])
     for i in range(0, len(ratings), batch_size):
         mini_batch = ratings.iloc[i:i + batch_size]
-        print(f'{(i / len(ratings)) * 100}%')        
+        print(f'{(i / (len(ratings) * epochs)) * 100}%')        
         # Compute errors and gradients for the entire mini-batch using vectorized operations
         errors = mini_batch.apply(lambda row: row['Rating'] - np.dot(u_latent.loc[row['UserId']], i_latent.loc[row['ItemId']]), axis=1)
         user_reg = 2 * lambda_reg * u_latent.loc[mini_batch['UserId'].values]
@@ -129,5 +137,11 @@ targets['Rating'] = targets.apply(lambda x: predict_with_sgd(x['UserId'], x['Ite
 targets = targets.drop(columns = ['UserId', 'ItemId'])
 
 targets.to_csv('submissions.csv', index=False)
+
+end = datetime.now()
+
+time_spent = relativedelta(end, start)
+
+print(f'{time_spent.minutes}m{time_spent.seconds}s')
 
 # print(u_latent, i_latent)
